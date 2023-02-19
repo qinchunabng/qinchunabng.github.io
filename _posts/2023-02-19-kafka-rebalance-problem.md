@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 
+title: 记一次跟kafka相关的生产故障
 categories: [java]
 description: 生产事故问题分析
 keywords: java, kafka
