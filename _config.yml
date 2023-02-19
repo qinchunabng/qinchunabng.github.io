@@ -4,7 +4,7 @@
 baseurl:
 url: 
 date_format: "ordinal"
-title: 码志
+title: 首页
 subtitle: ""
 description: "我的个人博客"
 keywords: java
@@ -141,18 +141,18 @@ comments_provider: giscus
 disqus:
     username: 
 # gitment 配置参考：https://imsun.net/posts/gitment-introduction/
-gitment:
-    owner: mzlogin
-    repo: blog-comments
-    oauth:
-        client_id: d2e1cbbd298958076462
-        client_secret: b42a4178e5fd4a7cf63189ef4b1453b05c375709
+#gitment:
+#    owner: mzlogin
+#    repo: blog-comments
+#    oauth:
+#        client_id: d2e1cbbd298958076462
+#        client_secret: b42a4178e5fd4a7cf63189ef4b1453b05c375709
 # gitalk 配置参考：https://github.com/gitalk/gitalk#install
-gitalk:
-    owner: mzlogin
-    repo: blog-comments
-    clientID: d2e1cbbd298958076462
-    clientSecret: b42a4178e5fd4a7cf63189ef4b1453b05c375709
+#gitalk:
+#    owner: mzlogin
+#    repo: blog-comments
+#    clientID: d2e1cbbd298958076462
+#    clientSecret: b42a4178e5fd4a7cf63189ef4b1453b05c375709
 # utterances 配置参考：https://utteranc.es/
 utterances:
     repo: mzlogin/blog-comments
