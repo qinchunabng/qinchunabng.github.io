@@ -6,6 +6,8 @@ description: MySQL InnoDB的锁介绍
 keywords: 数据库, MySQL, InnoDB, 锁
 ---
 
+MySQL的InnoDB中有多种锁，InnoDB在不同的操作和事务隔离级别使用这些锁，来保证数据的一致性。
+
 #### 共享锁和独占锁
 
 InnoDB实现了共享锁和独占锁两种行级锁。
@@ -109,3 +111,7 @@ mysql> SELECT * FROM child WHERE id > 100 FOR UPDATE;
 mysql> START TRANSACTION;
 mysql> INSERT INTO child (id) VALUES (101);
 ```
+
+#### 自增锁
+
+自增锁是特殊的表级锁，当一个表有自增列，插入数据时会加自增锁。当一个事务插入数据时，其他事务必须等待这个事务获取到一个连续不间断的主键值才能执行插入。innodb_autoinc_lock_mode参数可以选择自增锁的算法，通过这个参数可以调整自增序列可预测性和最大并发数之间等级。
