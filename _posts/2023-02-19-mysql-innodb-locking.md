@@ -84,3 +84,28 @@ Next-Key锁是记录锁和间隙锁的结合。InnoDB加行锁是在查询或扫
 对于最后一个索引范围，next-key锁会锁定最大值之后的索引间隙。
 
 InnoDB默认使用的是`REPEATABLE_READ`事务隔离级别，对于查询和索引扫描会使用next-key锁，来防止幻读。
+
+#### 插入意向锁
+
+插入意向锁是一种间隙锁，在插入之前之前获取。如果在多个事务中插入的数据是同一个间隙的不同一个位置，事务直接不会相互阻塞。假如一个索引记录有值为4和7的数据，有两个不同的事务分别准备插入5和6，在获取插入行的独占锁之前，分别先要获取4到7的插入意向锁，这两个事务之间不会相互阻塞。
+
+下面的例子展示两个不同的事务在插入数据行之前获取插入意向锁。先创建一个表包含两个索引记录（90和102），然后执行一个事务A，在id大于100的索引记录上加上独占锁，这个独占锁包含了一个102之前的间隙锁。
+
+```
+mysql> CREATE TABLE child (id int(11) NOT NULL, PRIMARY KEY(id)) ENGINE=InnoDB;
+mysql> INSERT INTO child (id) values (90),(102);
+
+mysql> START TRANSACTION;
+mysql> SELECT * FROM child WHERE id > 100 FOR UPDATE;
++-----+
+| id  |
++-----+
+| 102 |
++-----+
+```
+
+然后再执行一个事务B，在数据间隙中插入一行记录，这个事务将等待获取独占锁之前先会加一个插入意向锁。
+```
+mysql> START TRANSACTION;
+mysql> INSERT INTO child (id) VALUES (101);
+```
