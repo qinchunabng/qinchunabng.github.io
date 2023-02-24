@@ -86,7 +86,7 @@ InnoDB的事务隔离级别使用不同的锁策略。如果对数据的一致�
   x-lock(4,3); unlock(4,3)
   x-lock(5,2); update(5,2) to (5,4); retain x-lock
   ```
-  但是如果WHERE查询条件包含一个索引列，InnoDB将会使用索引列，只会锁定索引列数据。下面的例子中，第一个UPDATE操作只会获取和保留b=2的数据行，第二个UPDATE操作只会在获取同样的记录的独占锁的时候才会被阻塞。
+  但是如果WHERE查询条件包含一个索引列，InnoDB将会使用索引列，只会锁定索引列数据。下面的例子中，第一个UPDATE操作只会获取和保留b=2的数据行的独占锁，第二个UPDATE操作只会在获取同样的记录的独占锁的时候才会被阻塞。
   ```
   CREATE TABLE t (a INT NOT NULL, b INT, c INT, INDEX (b)) ENGINE = InnoDB;
   INSERT INTO t VALUES (1,2,3),(2,2,4);
