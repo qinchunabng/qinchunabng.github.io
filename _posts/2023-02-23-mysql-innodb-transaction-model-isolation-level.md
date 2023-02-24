@@ -6,7 +6,7 @@ description: InnoDB的事务隔离
 keywords: 数据库, MySQL, InnoDB, 事务隔离级别
 ---
 
-事务隔离级别是数据库事务的最重要的特性之一，是事务四大特性ACID中的I。通过调整事务隔离级别可以对事务的性能、可靠性、一致性之间的平衡进行调整。
+事务隔离级别是数据库事务的最重要的特性之一，是事务四大特性ACID中的I。通过调整事务隔离级别可以对事务的性能、可靠性、一致性之间的进行调整。
 
 InnoDB提供了四个事务隔离级别：READ_UNCOMMITED,READ_COMMITTED,REPEATABLE_READ和SERIALIZABLE，默认隔离级别是REPEATBLE_READ。可以通过`SET TRANSACTION`调整单个数据库会话的事务隔离级别。设置MySQL事务隔离级别，还可以通过`--transaction-isolation`命令行参数设置，设置将对所有数据库连接生效。
 
@@ -58,3 +58,52 @@ InnoDB的事务隔离级别使用不同的锁策略。如果对数据的一致�
   UPDATE t SET b = 4 WHERE b = 2;
   ```
   由于InnoDB执行UPDATE操作时，首先要获取所有行的独占锁，然后再判断是否需要修改。如果InnoDB不修改该行，会释放锁。否则InnoDB会保留锁直到事务结束。
+  当使用REPEATABLE READ隔离级别时，第一个UPDATE操作会获取读取的每行数据的独占锁（因为没有索引，会全表扫描，所以会相当于锁表），并且不会释放：
+  ```
+  x-lock(1,2); retain x-lock
+  x-lock(2,3); update(2,3) to (2,5); retain x-lock
+  x-lock(3,2); retain x-lock
+  x-lock(4,3); update(4,3) to (4,5); retain x-lock
+  x-lock(5,2); retain x-lock
+  ```
+  第二个UPDATE操作会被阻塞，因为第一个UPDATE操作锁住了所有数据，只到第一个UPDATE操作提交或回滚事务：
+  ```
+  x-lock(1,2); block and wait for first UPDATE to commit or roll back
+  ```
+  如果使用的时READ_COMMITTED隔离级别，第一个UPDATE操作在获取读取到每一行数据的独占锁后，会释放掉那些不需要修改的数据行的锁：
+  ```
+  x-lock(1,2); unlock(1,2)
+  x-lock(2,3); update(2,3) to (2,5); retain x-lock
+  x-lock(3,2); unlock(3,2)
+  x-lock(4,3); update(4,3) to (4,5); retain x-lock
+  x-lock(5,2); unlock(5,2)
+  ```
+  第二个UPDATE操作，InnoDB使用半一致性读，返回最新的提交的数据，这样MySQL可以根据最新的数据判断哪些数据满足UPDATE语句的WHERE查询条件：
+  ```
+  x-lock(1,2); update(1,2) to (1,4); retain x-lock
+  x-lock(2,3); unlock(2,3)
+  x-lock(3,2); update(3,2) to (3,4); retain x-lock
+  x-lock(4,3); unlock(4,3)
+  x-lock(5,2); update(5,2) to (5,4); retain x-lock
+  ```
+  但是如果WHERE查询条件包含一个索引列，InnoDB将会使用索引列，只会锁定索引列数据。下面的例子中，第一个UPDATE操作只会获取和保留b=2的数据行，第二个UPDATE操作只会在获取同样的记录的独占锁的时候才会被阻塞。
+  ```
+  CREATE TABLE t (a INT NOT NULL, b INT, c INT, INDEX (b)) ENGINE = InnoDB;
+  INSERT INTO t VALUES (1,2,3),(2,2,4);
+  COMMIT;
+
+  # Session A
+  START TRANSACTION;
+  UPDATE t SET b = 3 WHERE b = 2 AND c = 3;
+
+  # Session B
+  UPDATE t SET b = 4 WHERE b = 2 AND c = 4;
+  ```
+
+- READ UNCOMMITTED
+  
+  在这个隔离级别下，SELECT查询都是无阻塞的，但是可能会读取到其他事务未提交的数据。因此，使用这个隔离级别，读是不满足一致性要求，也就是会产生脏读。
+
+- SERIALIZABLE READ
+  
+  这个隔离级别和REPEATBLE READ类似，但是在autocommit关闭的时候InnoDB会隐式的就所有的普通SELECT语句转为SELECT...FOR SHARE。但是如果autocommit开启，每个SELECT操作会单独作为一个事务，所以这个事务只读的，所以不会加锁和阻塞其他事务。
