@@ -49,3 +49,12 @@ WHERE zipcode='95054'
 AND lastname LIKE '%etrunia%'
 AND address LIKE '%Main Street%';
 ```
+MySQL会使用扫描索引获取`zipcode='95054'`的数据，但是`lastname LIKE '%etrunia%'`无法被使用到，所以如果没有索引下推，这个查询会获取全表中所有`zipcode='95054'`的数据。
+
+开启索引下推，MySQL在读取整行数据前会检查`lastname LIKE '%etrunia%'`的条件，这会避免扫描匹配`zipcode='95054'`但是不匹配`lastname LIKE '%etrunia%'`的条件的整行数据。
+
+索引下推是默认开启的，可以通过optimizer_switch系统变量来设置：
+```
+SET optimizer_switch = 'index_condition_pushdown=off';
+SET optimizer_switch = 'index_condition_pushdown=on';
+```
