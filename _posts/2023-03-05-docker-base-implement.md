@@ -6,14 +6,14 @@ description: Docker的基本实现原因
 keywords: Docker
 ---
 
-### 实现原理
+## 实现原理
 
 Docker虚拟化需要解决的核心问题：资源隔离和资源限制
 
 - 虚拟机硬件虚拟化技术，通过hypervisor层实现对资源的彻底隔离。
 - 容器则是通过操作系统级别的虚拟化，利用的是内核的Cgroup和Namespace特性，此功能完全通过软件实现。
 
-#### Namespace资源隔离
+### Namespace资源隔离
 
 <a id="namespace">命名空间</a>是全局资源的一种抽象，将资源放到不同的命名空间中，各个命名空间的资源是相互隔离的。
 |分类|系统调用参数|相关内核版本|
@@ -130,10 +130,29 @@ lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 uts -> 'uts:[4026532210]'
 - uts: 隔离主机名和域名
 - user: 隔离用户和用户组
   
-#### CGroup资源限制
+### CGroup资源限制
 
 通过namespace可以保证容器间的隔离，但是无法控制每个容器可以占用多少资源，如果其中一个容器正在执行CPU密集型的任务，就会影响其他容器中任务的性能和执行效率，导致多个容器相互影响和资源抢占。如何对容器使用的资源进行限制就成为进程虚拟资源隔离之后的主要问题。
 
 ![docker共享资源](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/docker_shared_resources.png)
 
 Control Groups（简称CGroups）能隔离宿主机上物理资源，例如CPU、内存、硬盘I/O和网络带宽。每个CGroup都是一组被相同标准和参数限制的进程。而我们需要做的其实就是把容器的这个进程加入到指定的CGroup中。更多详细信息`man cgroups`参考man手册。
+
+### UnionFS联合文件系统
+
+Linux Namespace和CGroup分别解决资源隔离和资源限制，那么容器是很轻量的，通常每台机器上可以运行几十上百个容器，这些容器是公用一个image，还是各自将这个image各自复制一份，然后各自独立运行呢？如果每个容器之间都是全量的文件系统拷贝，那么至少将导致以下问题：
+
+- 运行容器的速度会变慢
+- 容器和镜像对宿主机的磁盘空间的压力
+
+怎么解决这个，Docker的存储驱动
+- 镜像分层存储
+- UnionFS
+  
+Docker镜像是由一系列的层组成的，每层代表Dockerfile中的一条指令，比如下面的Dockerfile：
+```
+FROM ubuntu:15.04
+COPY . /app
+RUN make /app
+CMD python /app/app.py
+```

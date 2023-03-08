@@ -1,14 +1,14 @@
 ---
 layout: post
-title: InnoDB结构
+title: InnoDB架构
 categories: [MySQL]
-description: InnoDB结构
+description: InnoDB架构
 keywords: MySQL, InnoDB
 ---
 
-## InnoDB结构
+## InnoDB架构
 
-![InnoDB架构图](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/mysql/innodb-architecture-8-0.png)
+![InnoDB架构图](https://raw.githubusercontent.com/qinchunabng/qinchunabng.github.io/master/images/posts/mysql/innodb-architecture-8-0.png)
 
 ## InnoDB内存结构
 
@@ -26,7 +26,7 @@ keywords: MySQL, InnoDB
 - 中间点的前面一部分，是最近访问过的页
 - 中间点的后面一部分，是最近访问比较少的页
   
-![缓存池链表](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/mysql/innodb-buffer-pool-list.png)
+![缓存池链表](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/mysql/innodb-buffer-pool-list.png?raw=true)
 
 这个算法将经常被访问的页放到新子链表中，旧的子链表中放访问较少的页，这些页可能会被淘汰回收。
 默认情况，这个算法的操作如下：
@@ -41,7 +41,7 @@ keywords: MySQL, InnoDB
 
 更新缓存是一个特殊的数据结构，当二级索引页不在缓存池中时，将二级索引的变更缓存起来。这些变更都是INSERT,UPDATE和DELETE这样的DML操作导致的，在后面读操作把数据页加载到缓冲池之后会被合并。
 
-![更新缓存](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/mysql/innodb-change-buffer.png)
+![更新缓存](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/mysql/innodb-change-buffer.png?raw=true)
 
 不像聚簇索引，二级索引不是唯一的，并且二级索引的数据的插入是以相对随机的顺序进行的。同样的，删除和更新操作可能影响的到二级索引页中不相邻的数据。当其他操作读取被影响的数据到缓存池之后，会合并更新缓存的内容，避免从硬盘将二级索引页读到缓冲池而引起的随机I/O。
 
