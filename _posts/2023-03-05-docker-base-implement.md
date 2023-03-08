@@ -164,4 +164,9 @@ CMD python /app/app.py
 
 对于容器层的操作，主要时利用的写时复制（copy-on-write）技术，表示只有在写的时候才需要复制，这是针对已有文件的修改场景。copy-on-write技术让所有的容器共享image的文件系统，所有的数据都从image读取，只有要对文件进行写操作时，才从image里把要写的文件复制到自己的文件系统进行修改。所以无论有多少个容器都是共享一个image，所有的写操作都是复制image到自己的文件系统的副本进行的，并不会修改image的源文件，且多个容器操作一个文件，会在每个容器的文件系统生成一个副本，每个容器都是修改的自己的副本，相互隔离，互不影响。使用copy-on-write可以有效的提高磁盘利用效率。
 
+![容器层结构](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/docker_container_layer_1.png?raw=true)
+
+镜像中的每一层都是分散不在不同的目录中，如果把这些不同目录的文件整合到一起？
+
+UnionFS是为Linux操作系统设计用于把多个文件系统联合到同一个挂载点的文件服务，它能够将不同文件夹中的层联合到同一个文件夹中，整个过程被成为联合挂载（Union Mount）。
 
