@@ -133,3 +133,7 @@ lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 uts -> 'uts:[4026532210]'
 #### CGroup资源限制
 
 通过namespace可以保证容器间的隔离，但是无法控制每个容器可以占用多少资源，如果其中一个容器正在执行CPU密集型的任务，就会影响其他容器中任务的性能和执行效率，导致多个容器相互影响和资源抢占。如何对容器使用的资源进行限制就成为进程虚拟资源隔离之后的主要问题。
+
+![docker共享资源](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/docker_shared_resources.png)
+
+Control Groups（简称CGroups）能隔离宿主机上物理资源，例如CPU、内存、硬盘I/O和网络带宽。每个CGroup都是一组被相同标准和参数限制的进程。而我们需要做的其实就是把容器的这个进程加入到指定的CGroup中。更多详细信息`man cgroups`参考man手册。
