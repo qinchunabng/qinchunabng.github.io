@@ -134,7 +134,7 @@ lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 uts -> 'uts:[4026532210]'
 
 通过namespace可以保证容器间的隔离，但是无法控制每个容器可以占用多少资源，如果其中一个容器正在执行CPU密集型的任务，就会影响其他容器中任务的性能和执行效率，导致多个容器相互影响和资源抢占。如何对容器使用的资源进行限制就成为进程虚拟资源隔离之后的主要问题。
 
-![docker共享资源](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/docker_shared_resources.png)
+![docker共享资源](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/docker_shared_resources.png?raw=true)
 
 Control Groups（简称CGroups）能隔离宿主机上物理资源，例如CPU、内存、硬盘I/O和网络带宽。每个CGroup都是一组被相同标准和参数限制的进程。而我们需要做的其实就是把容器的这个进程加入到指定的CGroup中。更多详细信息`man cgroups`参考man手册。
 
@@ -156,3 +156,12 @@ COPY . /app
 RUN make /app
 CMD python /app/app.py
 ```
+这里的Dockerfile包含4条指令，每条指令会创建一层，下图为上述Dockerfile构建出来的镜像容器层结构：
+
+![容器层结构](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/docker_container_layer.png?raw=true)
+
+镜像就像是由这些层一层层堆叠起来的，镜像中这些层都是只读的，当我们运行容器时，就可以在这些层基础上添加新的可写层，也就是我们通常说的*容器层*，对于运行的容器所作的更改（比如写入新文件，修改删除现有的文件）都将写入这个容器层。
+
+对于容器层的操作，主要时利用的写时复制（copy-on-write）技术，表示只有在写的时候才需要复制，这是针对已有文件的修改场景。copy-on-write技术让所有的容器共享image的文件系统，所有的数据都从image读取，只有要对文件进行写操作时，才从image里把要写的文件复制到自己的文件系统进行修改。所以无论有多少个容器都是共享一个image，所有的写操作都是复制image到自己的文件系统的副本进行的，并不会修改image的源文件，且多个容器操作一个文件，会在每个容器的文件系统生成一个副本，每个容器都是修改的自己的副本，相互隔离，互不影响。使用copy-on-write可以有效的提高磁盘利用效率。
+
+
