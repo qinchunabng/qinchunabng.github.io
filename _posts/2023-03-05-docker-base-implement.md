@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Docker的基本实现原因
+title: Docker的基本实现原理
 categories: [Docker]
 description: Docker的基本实现原因
 keywords: Docker
@@ -49,3 +49,87 @@ lrwxrwxrwx 1 qcb qcb 0 Mar  6 22:29 uts -> 'uts:[4026532210]'
 - stack:子进程栈空间的地址。
 - flags:创建子进程的标识参数，指定父子进程之间哪些资源共享，取值为[命名空间](#namespace)的系统调用参数。
 - arg:fn函数的函数。
+
+示例一：实现进程独立的UTS空间
+```
+#define __GNU_SOURCE
+#include <stdlib.h>
+#include <stdio.h>
+#include <linux/sched.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <unistd.h>
+
+#define STACK_SIZE (1024*1024)
+
+static char container_stack[STACK_SIZE];
+char * const container_args[]={"/bin/bash",NULL};
+
+int container_main(void* arg){
+    printf("Container - inside the container!\n");
+    sethostname("container",10);
+    execv(container_args[0], container_args);
+    printf("something is wrong!\n");
+    return -1;
+}
+
+int main(){
+    int container_id;
+    printf("Parent - start a container!\n");
+
+    container_id = clone(container_main, container_stack + STACK_SIZE, CLONE_NEWUTS | SIGCHLD, NULL);
+    waitpid(container_id, NULL, 0);
+    printf("Parent - container stopped!\n");
+    exit(0);
+}
+```
+执行编译并测试：
+```
+root@qincb:/mnt/d/Workspace/C/c_learning/clone# ./clone
+Parent - start a container!
+Container - inside the container!
+root@container:/mnt/d/Workspace/C/c_learning/clone# hostname
+container
+root@container:/mnt/d/Workspace/C/c_learning/clone# echo $$
+61
+root@container:/mnt/d/Workspace/C/c_learning/clone# ls -l /proc/61/ns
+total 0
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 cgroup -> 'cgroup:[4026531835]'
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 ipc -> 'ipc:[4026532211]'
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 mnt -> 'mnt:[4026532209]'
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 net -> 'net:[4026531992]'
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 pid -> 'pid:[4026532212]'
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 pid_for_children -> 'pid:[4026532212]'
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 user -> 'user:[4026531837]'
+lrwxrwxrwx 1 root root 0 Mar  8 09:46 uts -> 'uts:[4026532288]'
+```
+新启动一个终端：
+```
+qcb@qincb:/mnt/d/Workspace/C/c_learning$ hostname
+qincb
+qcb@qincb:/mnt/d/Workspace/C/c_learning$ echo $$
+72
+qcb@qincb:/mnt/d/Workspace/C/c_learning$ ls -l /proc/72/ns
+total 0
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 cgroup -> 'cgroup:[4026531835]'
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 ipc -> 'ipc:[4026532211]'
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 mnt -> 'mnt:[4026532209]'
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 net -> 'net:[4026531992]'
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 pid -> 'pid:[4026532212]'
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 pid_for_children -> 'pid:[4026532212]'
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 user -> 'user:[4026531837]'
+lrwxrwxrwx 1 qcb qcb 0 Mar  8 09:49 uts -> 'uts:[4026532210]'
+```
+对比clone的子进程和外部的进程，子进程修改了hostname，但是外部进程的中的hostname还是原来的，并且子进程uts命令空间和外部进程的不一样，说明通过命名空间实现了资源隔离。
+
+综上：通俗来讲，docker在启动一个容器时，会调用Linux Kernel Namespace的接口，来创建一块虚拟空间，可以支持下面这几种（可以随意设置），docker默认都设置：
+- pid: 用于进程隔离（PID: 进程ID）
+- net: 管理网络接口（NET: 网络）
+- ipc: 管理对IPC资源的使用（IPC: 进程间通信（信号量/消息队列/共享内存））
+- mnt: 管理文件系统挂载点（MNT: 挂载）
+- uts: 隔离主机名和域名
+- user: 隔离用户和用户组
+  
+#### CGroup资源限制
+
+通过namespace可以保证容器间的隔离，但是无法控制每个容器可以占用多少资源，如果其中一个容器正在执行CPU密集型的任务，就会影响其他容器中任务的性能和执行效率，导致多个容器相互影响和资源抢占。如何对容器使用的资源进行限制就成为进程虚拟资源隔离之后的主要问题。
