@@ -170,3 +170,7 @@ CMD python /app/app.py
 
 UnionFS是为Linux操作系统设计用于把多个文件系统联合到同一个挂载点的文件服务，它能够将不同文件夹中的层联合到同一个文件夹中，整个过程被成为联合挂载（Union Mount）。
 
+![AUFS](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/docker_aufs.png?raw=true)
+
+上图时AUFS的实现，AUFS是作为Docker存储驱动的一种实现，Docker还支持了不同的存储驱动，包括aufs、devicemapper、overlay2、zfs和Btrfs等等，在最新的Docker中，overlay2取代了aufs成为推荐的存储驱动，但是在没有overlay2驱动的机器上仍会使用aufs作为Docker的默认驱动。
+
