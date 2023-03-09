@@ -197,4 +197,5 @@ docker容器是一块具有隔离行的虚拟系统，容器内可以有自己�
 如果创建容器时不指定默认使用就是bridge模式，bridge就是桥的意思，bridge模式就是网桥模式。
 
 那我们怎么理解网桥，如果要做类比，我们可以把网桥堪称一个二层交换机，我们看下图，交换机通信简图：
-![]()
+
+![交换机通信简图](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/exchange_communication.png?raw=true)
