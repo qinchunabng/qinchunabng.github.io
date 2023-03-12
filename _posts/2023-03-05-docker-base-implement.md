@@ -199,3 +199,23 @@ docker容器是一块具有隔离行的虚拟系统，容器内可以有自己�
 那我们怎么理解网桥，如果要做类比，我们可以把网桥堪称一个二层交换机，我们看下图，交换机通信简图：
 
 ![交换机通信简图](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/exchange_communication.png?raw=true)
+
+网桥模式示意图：
+
+![网桥模式示意图](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/docker/bridge_model.png?raw=true)
+
+Linux中，能够起到**虚拟交换机作用**的网络设备，是网桥（Bridge）。它是一个数据链路层（Data Link）的设备，主要功能是**根据MAC地址将数据包转发到网桥的不同端口上**。可以通过下面命令查看网桥
+```
+$ apt-get install -y bridge-utils
+$ brctl show
+```
+有个网桥之后，那我们看一下docker在启动的时候做了哪些事情才能让容器间实现互通。
+
+Docker创建一个容器的时候，会执行如下操作：
+- 创建一对虚拟接口/网卡，也就是veth pair；
+- 本地主机一端桥接到默认的docker0或者指定网桥上，并且具有唯一的名字，如veth995b75;
+- 容器另一端放到新启动容器内部，并修改名字为eth0，这个网卡/接口只在容器命名空间可见；
+- 从网桥可用地址桥中（也就是与该bridge对应的network）获取一个空闲地址分配给容器的eth0;
+- 配置默认路由到网桥。
+
+整个过程都是docker完成的。
