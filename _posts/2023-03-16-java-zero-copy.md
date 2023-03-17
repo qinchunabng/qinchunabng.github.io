@@ -60,9 +60,11 @@ ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
 file.read()读取文件和socket.send()发送数据两个操作可以使用transferTo()来完成，图3展示了transferTo()调用过程中数据的传输过程：
 
 图3 transferTo()的数据拷贝
+
 ![transferTo()的数据拷贝](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/java_zero_cp_figure3.gif?raw=true)
 
 图4 transferTo()的上下文切换
+
 ![transferTo()的上下文切换](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/java_zero_cp_figure4.gif?raw=true)
 
  transferTo()的执行流程如下：
@@ -76,8 +78,6 @@ file.read()读取文件和socket.send()发送数据两个操作可以使用trans
 2.  数据不会被拷贝到socket缓冲区，只有带有数据地址和数据长度的描述符附加到socket缓冲区。DMA引擎直接将数据从内核缓冲区拷贝到协议引擎中，这样就消除了最后一次CPU的数据拷贝。
 
 图5展示了使用gather操作的transferTo()的数据拷贝过程：
-
-图5
 
 ![使用gather操作的transferTo()](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/java_zero_cp_figure5.gif?raw=true)
 
