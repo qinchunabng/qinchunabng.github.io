@@ -150,7 +150,12 @@ public class TraditionalClient {
 }
 ```
 
-核心操作其实就两个：读取文件，将文件内容发送到网络。虽然操作很简单，但是操作服务器内部却需要用户态和内核态之间的四次上下文切换，并且数据需要拷贝四次。图1展示了服务器内部数据是怎么从文件流向网络套接字的：
+核心操作其实就两个：读取文件，将文件内容发送到网络。
+```
+File.read(fileDesc, buf, len);
+Socket.send(socket, buf, len);
+```
+虽然操作很简单，但是操作服务器内部却需要用户态和内核态之间的四次上下文切换，并且数据需要拷贝四次。图1展示了服务器内部数据是怎么从文件流向网络套接字的：
 
 图1 传统数据的拷贝方式
 
@@ -173,6 +178,40 @@ public class TraditionalClient {
 
 零拷贝可以消除这些多余的数据拷贝来提升性能。
 
+### 零拷贝的数据传输方式
 
+如果你自己检查传统的数据传输方式，你会发现第二次和第三次数据拷贝是没有必要的。数据拷贝到用户缓存后应用程序没有做任何操作，又传回内核空间的socket缓冲区。相反，数据是可以直接从内核的读取数据的缓冲区直接传输到socket缓冲区。通过transferTo()方法可以完成这个操作。
+transferTo()方法的签名：
+```
+public void transferTo(long position, long count, WritableByteChannel target);
+```
+transferTo()方法将数据从文件channel传输到一个指定的可写的channel。它的内部实现是依赖操作系统实现的零拷贝，在UNIX和Linux中，是调用的sendfile()系统调用，这个系统调用可以从一个文件描述符传输数据到另外一个文件描述符：
+```
+#include <sys/socket.h>
+ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
+```
+file.read()读取文件和socket.send()发送数据两个操作可以使用transferTo()来完成，图3展示了transferTo()调用过程中数据的传输过程：
+
+图3 transferTo()的数据拷贝
+![transferTo()的数据拷贝](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/java_zero_cp_figure3.gif?raw=true)
+
+图4 transferTo()的上下文切换
+![transferTo()的上下文切换](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/java_zero_cp_figure4.gif?raw=true)
+
+ transferTo()的执行流程如下：
+ 
+ 1. transferTo()方法调用引起DMA引擎将文件内容从硬盘拷贝的到内核读缓冲，然后数据又被拷贝到关联socket的内核缓冲区。
+ 2. 第三次数据拷贝发生在DMA引擎从内核的socket缓冲区传输到协议引擎。
+
+这里将上下文切换的次数从4次减少到2次，数据拷贝的次数从4次减少到3次（只有一次需要CPU参与）。但是这还是没有达到零拷贝的目标，如果底层的网卡支持gather操作，我们可以进一步减少数据的重复复制。在Linux2.4及以后的版本中，socket缓冲区描述符支持这个操作。这种方式不光减少上下文的切换，同时也消除的需要CPU参与的那个数据拷贝。transferTo()使用方式没有变，只是内部的实现变了：
+
+1.  transferTo()方法调用DMA引擎将文件内容从硬盘拷贝的到内核读缓冲。
+2.  数据不会被拷贝到socket缓冲区，只有带有数据地址和数据长度的描述符附加到socket缓冲区。DMA引擎直接将数据从内核缓冲区拷贝到协议引擎中，这样就消除了最后一次CPU的数据拷贝。
+
+图5展示了使用gather操作的transferTo()的数据拷贝过程：
+
+图5
+
+![使用gather操作的transferTo()](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/java_zero_cp_figure5.gif?raw=true)
 
 

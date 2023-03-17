@@ -56,3 +56,5 @@ kafka中一个常见的消费方式是多个消费者消费一个topic。使用�
 通过页缓存和sendfile的组合，使kafka集群中消费者能够达到极佳的性能，因为读操作几乎不需要访问磁盘所有的数据都在缓存中。
 
 由于TLS/SSL库的操作是在用户空间（kafka目前还不支持内核的SSL_sendfile），在SSL开启时不会使用sendfile。
+
+java中零拷贝参考这篇[文章](https://qinchunabng.github.io/2023/03/16/java-zero-copy/)。
