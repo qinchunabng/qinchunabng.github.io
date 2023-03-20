@@ -115,3 +115,27 @@ kafka中，发送的消息有提交的概念。一个消息一旦被提交，只
 那么什么是exactly-once语义？当从一个kafka topic消费消息之后，生产消费发送到另外一个topic，我们可以利用0.11.0.0中新加的事务来处理。消费者消费的位置是存储在一个topic中消息，所以我们可以将写入offset到kafka和发送结果处理数据到另外一个topic放到一个事务中。如果是被终止，消费者的position会恢复到旧的位置，并且生成数据到另外一个topic消息对其他的消费不可见，这个取决于它的隔离级别。在默认read_uncommitted的隔离级别下，所有消息对消费者都可见，即使这些消息是属于一个中断的事务。但是在read_committed下，消费只能看到已经提交的事务的消息。
 
 当写入到外部系统，消费者消费位置和消费输出结果存储要处理好。一般都是在存储消费位置和存储消费输出结果引入两阶段提交。但是也可以将消费位置和消费输出结果存储到同样的地方，通过这种简单方式解决。这种处理方式更好，因为很多存储输出结果的存储系统不支持两阶段提交。
+
+### 副本
+
+kafka会将日志从topic partition的leader中配置的到follwer中，这样就能实现自动故障转移，当集群中有节点发证故障时整个集群仍然可用。
+
+副本是以topic partition为单位的。在kafka中，每个partition都有一个leader和0个或多个follower，replication factor是包含了leader的总副本数。所有的写操作都发送到leader，读操作发送到leader和follower。如果partition的数量比broker多，leader会平均分布在broker上。follower上的数据和leader的数据是一样的，都有同样的offset和同样的顺序（当然也会存在leader中的消息日志还没有同步到follower的情况）。follower从leader消费消费消息就和普通的消费者一样，会把消息写入到follower的日志文件中。
+
+在大多数分布式系统中，自动故障转移需要给节点是否存活一个准确的定义。在kafka中，有一个叫controller的特殊节点，用来管理集群节点的注册。判断broker是否存活需要满足以下两个条件：
+
+1. broker要与controller维护一个活跃的会话，用于接收元数据的更新。
+2. follower节点要从leader节点同步数据，并且不能落后leader太多。
+
+什么活跃的会话取决于集群配置。对于KRaft集群，保持会话活跃需要发送心跳到controller。如果controller超过`broker.session.timeout.ms`没有收到心跳，就认为这个节点下线了。
+
+对于使用zookeeper的集群，是否活跃是通过broker初始化zookeeper会话时创建的临时节点。如果broker超过`zookeeper.session.timeout.ms`每个发送心跳给zookeeper，临时节点会被删除。controller会监听到临时节点删除，然后标记这个broker为下线。
+
+满足上面两个条件的节点我们称之为同步节点。leader与同步的节点（ISR）保持连接。如果两个条件任何一个不满足，broker将会从ISR移除。例如，如果一个follower宕机了，controller会通过会话检测出来，然后就会从ISR中移除这个broker。另外一种情况是，如果follower落后leader太多，但是会话却是活跃的，leader也会从ISR中将它移除。follower落后broker的最大时间是通过`replica.lag.time.max.ms`配置的，如果follower超过配置的最大时间没有追上leader，就会被从ISR中移除。
+
+在分布式系统术语中，只处理节点停止工作，过了段时间又恢复（可能节点并不知道它们出现了问题）这种失败恢复的模型。kafka不会处理因为BUG或者什么原因导致节点出现错误的响应而导致的拜占庭式故障。
+
+当partition的ISR中的所有的副本都写入日志后，消息可以认为是已经commit，只有已提交的消息会被分发到消费者。这意味消费者不必担心会看到因为leader宕机而导致而丢失的消息。生产者可以配置是否等待消息提交，根据消息的延迟和持久化来权限。
+
+
+
