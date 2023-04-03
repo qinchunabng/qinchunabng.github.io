@@ -3,7 +3,7 @@ layout: post
 title: C语言中的数据类型
 categories: [C]
 description: C语言中的数据类型
-keywords: C
+keywords: C, 数据类型
 ---
 
 ### 基本数据类型
