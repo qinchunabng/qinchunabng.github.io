@@ -14,6 +14,7 @@ keywords: C, I/O
 int printf(const char *format,...);
 ```
 - format: "%[修饰符] 格式字符串"，参考下表标准输出修饰符与输入输出格式字符。
+  
   <table>
     <tr>
         <td>d,i</td>
@@ -122,6 +123,7 @@ int printf(const char *format,...);
   - 缓冲区
     
     看下面代码:
+    
     ```
     printf("[%s:%d]before while().", __FUNCTION__, __LINE__);
     while(1);
