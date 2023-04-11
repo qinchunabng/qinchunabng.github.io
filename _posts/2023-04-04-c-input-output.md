@@ -87,7 +87,6 @@ int printf(const char *format,...);
         <td>m</td>
         <td>输出数据域宽，数据长度<m，左补空格；否则按照实际输出 
     </tr>
-    </tr>
     <tr>
         <td rowspan="2">.n</td>
         <td>对实数，指定小数点后位数（四舍五入）</td>
@@ -123,12 +122,13 @@ int printf(const char *format,...);
   - 缓冲区
     
     看下面代码:
-    
+
     ```
     printf("[%s:%d]before while().", __FUNCTION__, __LINE__);
     while(1);
     printf("[%s:%d]after while().", __FUNCTION__, __LINE__);
     ```
+
     这个代码不会输出任何内容，原因是printf输出的内容是放到输出缓冲区的，遇到`\n`或者显式调用`fflush()`才会刷新缓冲区，或者等缓冲区满了才会自动刷新缓冲区。
 
 ```
