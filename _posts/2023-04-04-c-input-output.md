@@ -232,4 +232,5 @@ printf("i = %d, ch = %c", i, ch);
 ### 字符串输入输出函数：getchar、putchar
 
 ### 字符串输入输出函数：gets、puts
+
 使用gets会出现`warning: the `gets' function is dangerous and should not be used.`的警告，因为gets不会验证数据组越界，应该使用fgets替代，或使用getline，但是getline属于方言，只存在GNU的glibc的库中。
