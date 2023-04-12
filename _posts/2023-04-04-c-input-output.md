@@ -119,17 +119,17 @@ int printf(const char *format,...);
     </tr>
   </table>
 
-  - 缓冲区
+- 缓冲区
     
-    看下面代码:
+  看下面代码:
 
-    ```
-    printf("[%s:%d]before while().", __FUNCTION__, __LINE__);
-    while(1);
-    printf("[%s:%d]after while().", __FUNCTION__, __LINE__);
-    ```
+   ```
+   printf("[%s:%d]before while().", __FUNCTION__, __LINE__);
+   while(1);
+   printf("[%s:%d]after while().", __FUNCTION__, __LINE__);
+   ```
 
-    这个代码不会输出任何内容，原因是printf输出的内容是放到输出缓冲区的，遇到`\n`或者显式调用`fflush()`才会刷新缓冲区，或者等缓冲区满了才会自动刷新缓冲区。
+  这个代码不会输出任何内容，原因是printf输出的内容是放到输出缓冲区的，遇到`\n`或者显式调用`fflush()`才会刷新缓冲区，或者等缓冲区满了才会自动刷新缓冲区。
 
 ```
 int scanf(const char *format,...);
