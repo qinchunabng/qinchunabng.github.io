@@ -85,7 +85,7 @@ int printf(const char *format,...);
     </tr>
     <tr>
         <td>m</td>
-        <td>输出数据域宽，数据长度<m，左补空格；否则按照实际输出 
+        <td>输出数据域宽，数据长度<m，左补空格；否则按照实际输出</td> 
     </tr>
     <tr>
         <td rowspan="2">.n</td>
