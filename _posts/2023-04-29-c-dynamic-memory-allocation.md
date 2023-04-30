@@ -1,7 +1,7 @@
 ---
 layout: post
 title: C语言中的动态内存管理
-categories: [C++]
+categories: [C]
 description: C语言中的动态内存管理
 keywords: C, 动态内存管理
 ---
