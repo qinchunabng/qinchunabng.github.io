@@ -33,6 +33,36 @@ void free(void *ptr);
 ```
 free函数用来释放指向ptr指针指向的空间，如果ptr是NULL，不会执行任何操作。
 
+一个指针被free之后，就不能再使用了，否则会引起意向不到的后果，最好的办法就是在free之后，将指针指向NULL。看下面例子：
+```
+int *p=NULL;
+p=malloc(sizeof(int));
+if(p==NULL){
+    printf("malloc() error!\n");
+    exit(1);
+}
+
+*p=10;
+printf("%p=%d\n", p, *p);
+
+free(p);
+printf("%p=%d\n", p, *p);
+
+*p=20;
+printf("%p=%d\n", p, *p);
+```
+输出结果：
+```
+0x55fec9b052a0=10
+0x55fec9b052a0=1609341701
+0x55fec9b052a0=20
+```
+可以看出，指针p在free之后任何可以使用，并没有报错。但是使用过程中，指针p内存空间在free之后，可能被分配给其他变量在使用，在free之后任何使用，就会覆盖其他变量的值，导致严重的后果，所以在free之后应该把指针指向NULL：
+```
+free(p);
+p=NULL;
+```
+
 
 看下面例子：
 ```
