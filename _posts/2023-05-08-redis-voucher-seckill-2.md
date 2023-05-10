@@ -138,4 +138,12 @@ boolean success = seckillVoucherService.update()
             .eq("voucher_id", voucherId).update().gt("stock",0); //where id = ? and stock > 0
 ```
 
-通过以上方式就可以解决库存超卖的问题。
+### 小结
+
+超卖这样的线程安全问题，解决方案有哪些？
+1. 悲观锁：添加同步锁，让线程串行执行。
+   - 优点：简单粗暴
+   - 缺点：性能一般
+2. 乐观锁：不加锁，在更新时判断是否有其他线程在修改。
+   - 优点：性能好
+   - 缺点：存在成功率低的问题
