@@ -138,7 +138,11 @@ if(!isLock){
   //获取锁失败，返回错误信息或者重试
   return Result.fail("不允许重复下单");
 }
-//获取代理对象
-IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
-return proxy.createVoucherOrder(voucherId, userId)
+try{
+  //获取代理对象
+  IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+  return proxy.createVoucherOrder(voucherId, userId)
+}finally{
+  lock.unlock();
+}
 ```
