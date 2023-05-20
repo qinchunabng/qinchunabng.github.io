@@ -153,4 +153,49 @@ try{
 
 ![分布式锁误删](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/redis/del_wrong_lock.png?raw=true)
 
-如何解决分布式锁误删问题呢？在获取的时候把当前线程的标识存进群，然后释放锁的时候，先判断锁标识与当前线程是否一致，一致才删除释放锁。
+如何解决分布式锁误删问题呢？在获取的时候把当前线程的标识存进群，然后释放锁的时候，先判断锁标识与当前线程是否一致，一致才删除释放锁。优化的释放锁的流程如下：
+
+![分布式锁误删](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/redis/del_wrong_lock_1.png?raw=true)
+
+改进Redis分布式锁实现：
+1. 获取锁时，存入线程唯一标识（可以用UUID标识）
+2. 在释放锁时先获取锁种线程标识，判断是否与当前线程一致
+   - 如果一致则释放锁
+   - 如果不一致则不释放锁
+
+改进代码：
+```
+private static final String ID_PREFIX = UUID.randomUUID().toString().replaceAll("-","") + "-;
+
+* 加锁操作
+*/
+@Override
+public boolean tryLock(long timeoutSec){
+  //获取线程表示
+  long threadId = ID_PREFIX + Thread.currentThread().getId();
+  //获取锁
+  Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(KEY_PREFIX + name, threadId, timeoutSec, TimeUnit.SECONDS);
+  //防止自动拆箱导致空指针异常
+  return Boolean.TURE.equals(success);
+}
+
+/**
+* 释放锁
+*/
+@Overrider
+public unlock(){
+  //获取线程标识
+  long threadId = ID_PREFIX + Thread.currentThread().getId();
+  //获取锁种的线程标识
+  String id = stringRedisTemplate.opsForValue().get(KEY_PREFIX + name);
+  //判断线程标识是否一致
+  if(threadId.equals(id)){
+    //释放锁
+    stringSimpleTemplate.delete(KEY_PREFIX + name);
+  }
+}
+```
+
+#### 分布式锁的原子性
+
+看下面一个特殊场景：
