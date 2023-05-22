@@ -182,8 +182,8 @@ public boolean tryLock(long timeoutSec){
 /**
 * 释放锁
 */
-@Overrider
-public unlock(){
+@Override
+public void unlock(){
   //获取线程标识
   long threadId = ID_PREFIX + Thread.currentThread().getId();
   //获取锁种的线程标识
@@ -202,3 +202,75 @@ public unlock(){
 ![分布式锁原子性](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/redis/distribution_lock_atomic.png?raw=true)
 
 线程1先获取分布式执行自己的业务，执行完之后，获取分布式锁中的锁标识与当前线程标识进行比较，判断锁标识一致后，在删除锁之前，由于GC导致当前线程阻塞。最后分布式锁由于超时被自动删除，这个时候线程2获取分布式锁成功，执行自己的业务。此时线程1从阻塞中恢复，由于之前已经判断过锁标识一致，直接执行删除锁的代码，就将线程2的锁删除了。然后线程3获取到分布式锁执行自己的业务，这个就存在线程1和线程2同时在执行，就会导致数据安全的问题。出现这个问题的原因是，判断锁是否一致和删除锁是两个操作，无法保证原子性。
+
+如果解决这个问题，可以使用lua脚本来执行这两个操作，Redis执行lua脚本可以保证操作的原子性。这里重点介绍一下Redis提供的调用函数，语法如下：
+```
+redis.call('命令名称','key','其他参数',...)
+```
+例如要执行`set name jack`，使用lua脚本执行是这样的：
+```
+redis.call('set','name','jack')
+```
+例如，我们先执行`set name Rose`，再执行`get name`，则脚本如下：
+```
+redis.call('set','name','Rose')
+local name=redis.call('get','name')
+return name
+```
+写好脚本之后，需要通过Redis命令来调用脚本，调用脚本的常见命令如下：
+```
+EVAL script numkeys key [key...] arg [arg...]
+```
+- numkeys为参数的个数
+  
+例如，我们要执行`redis.call('set','name','jack')`这个脚本，语法如下：
+```
+EVAL "return redis.call('set','name','jack')" 0
+```
+
+双引号为脚本内容，0为参数个数。如果脚本中的key和value不想写死，可以作为参数传递。key类型参数会放入KEYS数组，其他参数会放入ARGV数组，在脚本中可以从KEYS和ARGVS数组获取这些参数：
+```
+EVAL "redis.call('set',KEYS[1],ARGVS[1])" 1 name Rose
+```
+现在来分析分布式锁中释放锁的流程：
+1. 获取锁的线程标识
+2. 判断是否与当前线程唯一标识是否一致
+3. 如果一致则删除释放锁
+4. 如果不一致则什么都不做
+
+按照这个逻辑，释放锁的lua脚本为：
+```
+-- 锁的key
+local key=KEYS[1]
+-- 当前线程标识
+local threadId=ARGV[1]
+
+--获取锁的线程标识
+local id=redis.call('get',key)
+if(id==threadId) then
+  -- 释放锁
+  return redis.call('del',key)
+end
+return 0
+```
+
+通过lua脚本改进Redis分布式锁，在resource目录新建unlock.lua文件，将以上脚本放在unlock.lua文件中。改进释放锁操作：
+```
+#定义lua
+private static final DefaultRedisScript<Long> UNLOCK_SCRIPT;
+
+static{
+  UNLOCK_SCRIPT=new DefaultRedisScript<>();
+  UNLOCK_SCRIPT.setLocation(new ClassPathResource("unlock.lua"));
+  UNLOCK_SCRIPT.setReturnType(Long.class);
+}
+
+/**
+* 释放锁
+*/
+@Override
+public void unlock(){
+  //调用lua脚本
+ stringRedisTemplate.execute(UNLOCK_SCRIPT,Collections.singletonList(KEY_PREFIX + name), Collections.singletonList(ID_PREFIX + Thread.currentThread().getId()));
+}
+```
