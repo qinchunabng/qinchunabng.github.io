@@ -200,3 +200,215 @@ int main(int argc,char *argv[]){
     return 0;
 }
 ```
+
+#### fgets和fputs函数
+
+fgets函数原型:
+```
+char *fgets(char *s, int size, FILE *stream);
+```
+fgets函数的作用是读取size-1个字符，或者读取到换行符（换行符也会读取到缓冲区中）或者文件结尾，读取的内容存入到s中，后面再加上'\0'结束符。
+
+fputs函数原型：
+```
+ int fputs(const char *s, FILE *stream);
+```
+fputs函数的作用是把字符串s中的内如写入到stream文件流中。
+
+用户fgets和fputs函数重写前面一个例子：
+```
+#include <stdio.h>
+#include <stdlib.h>
+
+#define BUFSIZE 1024
+
+int main(int argc,char *argv[]){
+    FILE *fps,*fpd;
+    int c;
+    char buf[BUFSIZE];
+
+    if(argc < 3){
+        fprintf(stderr,"Usage:%s <src_file> <dest_file>\n",argv[0]);
+        exit(1);
+    }
+
+    fps=fopen(argv[1],"r");
+    if(fps==NULL){
+        perror("fopen()");
+        exit(1);
+    }
+
+    fpd=fopen(argv[2],"w");
+    if(fpd==NULL){
+        //如果目标文件打开失败，记得关闭第一个文件，否则会出现内存泄漏
+        fclose(fps);
+        perror("fopen()");
+        exit(1);
+    }
+    
+    while(fgets(buf,BUFSIZE,fps)!=NULL)
+        fputs(buf,fpd);
+
+    fclose(fps);
+    fclose(fpd);
+    return 0;
+}
+```
+
+#### fread和fwrite函数
+
+函数原型：
+```
+size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+
+size_t fwrite(const void *ptr, size_t size, size_t nmemb,
+                     FILE *stream);
+```
+fread函数的作用是从stream文件流读取nmemb个成员，每个成员的大小为size大小到ptr中（总大小size*nmemb）。
+
+fwrite函数的作用是将ptr中nmemb个size大小的成员写入到文件里stream中。
+
+2个函数调用成功时，返回值为读取或写入成员的数量。这两个函数一般是用在读写多个固定大小得结构体变量时使用，需要主要的是，在读取的时候如果其中一个变量的数据出现错误会影响到后面的成员的读取。
+
+#### atoi函数
+
+```
+ int atoi(const char *nptr);
+```
+
+atoi函数的作用是将一个给定的字符串转换为int。在转换的过程中，直到检查到字符串的结束符或者非数字字符，例如：
+```
+int i=atoi("123a456");
+printf("%d\n",123);
+```
+结果为：123。
+
+
+#### sprintf和snprintf函数
+
+```
+int sprintf(char *str, const char *format, ...);
+```
+sprintf函数的作用是将指定格式转换为字符串。示例：
+```
+char buf[1024];
+int year=2023,month=6,day=5;
+sprintf(buf,"%d-%d-%d", year, month, day);
+printf("%s\n", buf);
+```
+输出结果：
+```
+2023-6-5
+```
+
+```
+int snprintf(char *str, size_t size, const char *format, ...);
+```
+sprintf函数在转换没有指定字符串的大小，可能会导致内存的溢出。snprintf函数在sprintf函数基础增加了size参数，可以指定接受字符串的大小。
+
+#### fseek、ftell和rewind函数
+
+```
+int fseek(FILE *stream, long offset, int whence);
+
+long ftell(FILE *stream);
+
+void rewind(FILE *stream);
+```
+
+fseek函数的作用是设置stream文件流的位置，offset为偏移量，whence为设置偏移量的位置。whence的取值：
+- SEEK_SET：文件的开始位置
+- SEEK_CUR：文件的当前位置
+- SEEK_END：文件的结束位置
+  
+ftell函数的作用是获取文件流的当前位置。需要注意的是返回参数为long，但是long在C的标准中没有明确定义大小，如果是在32位机器上，long大小为4字节。但是ftell函数返回的位置只能是正数，也就是2^31，也就是2G，所以对应的在32位机器上fseek函数设置文件的不能超过2G。
+
+rewind函数的作用是设置stream文件流指向文件开始的位置，相当于：
+```
+(void)fseek(stream,0,SEEK_SET);
+```
+
+fseek函数还有一个作用就是创建空洞文件，空洞文件就是文件内容都为0的文件。空洞文件的作用一般是在网络上下载文件的时候，根据下载的文件大小，先创建一个空洞文件占有磁盘空间，然后将文件分为多个块，下载的时候启动多个线程，每个线程写入一部分块的内容。
+
+
+#### 输出缓冲区和fflush函数
+
+看下面一个例子：
+```
+int main(){
+    printf("Before while()");
+
+    while(1);
+
+    printf("After while()");
+    exit(0);
+}
+```
+按照代码逻辑，我们可能会认为这段代码的输出为：
+```
+Before while()
+```
+但是运行代码之后，实际上不会输出任何内容。原因是由于标准输出是行缓存模式，只有在遇到换行的时候，或者一行满了的时候才会刷新缓冲区。
+所以上面代码如果要即时输出结果，可以修改为：
+```
+int main(){
+    printf("Before while()\n");
+
+    while(1);
+
+    printf("After while()\n");
+    exit(0);
+}
+```
+输出结果：
+```
+Before while()
+```
+
+或者使用fflush函数主动刷新缓冲区。fflush函数原型：
+```
+int fflush(FILE *stream);
+```
+fflush函数的作用就是强制刷新stream的输出缓冲区的数据，如果stream为NULL，会刷新所有开启输出流。所以前面的代码需要也可以修改为：
+```
+int main(){
+  printf("Before while()");
+  fflush(stdout);
+
+  while(1);
+
+  printf("After while()");
+  fflush(NULL);
+}
+```
+
+缓冲区的作用：合并系统调用，在大多数情况是优点。
+
+缓冲区的模式：
+- 行缓冲：换行的时候刷新，满了的时候刷新，强制刷新（标准输出是这样的）
+- 全缓冲模式：满了的时候刷新，强制刷新（默认，非终端设备除外）
+- 无缓冲：如：stderr，需要立即输出的内容
+#### fseeko和ftello函数
+
+```
+int fseeko(FILE *stream, off_t offset, int whence);
+
+off_t ftello(FILE *stream);
+```
+
+fseeko和ftello函数与fseek和ftell函数的作用是一样的，不同的是fseeko函数offset参数和ftello返回值的类型改为off_t，为一个类型的别名。在一些系统中off_t和long都是32字节，但是可以在编译的时候通过参数`-D_FILE_OFFSET_BITS=64`指定off_t为8字节，也可以在makefile文件中添加`CFLAGS+=-D_FILE_OFFSET_BITS=64`来修改。但是这个两个函数是属于POSIX.1-2001, POSIX.1-2008, SUSv2的方言，移植性不太好。
+
+#### 
+
+#### 其他函数
+
+```
+int scanf(const char *format, ...);
+int fscanf(FILE *stream, const char *format, ...);
+int sscanf(const char *str, const char *format, ...);
+```
+- scanf函数的作用是从标准输入中读取内容到指定变量。
+- fscanf函数的作用是从文件流中读取内容到指定变量。
+- sscanf函数的作用是从字符串读取内容到指定变量。
+
+注意：在指定读取变量为字符串的时候，因为无法预测输入内容的大小，可能会导致输入的内容超过字符串的大小，这是很危险的。
