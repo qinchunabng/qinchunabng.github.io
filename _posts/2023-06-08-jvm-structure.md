@@ -8,7 +8,7 @@ keywords: Java, JVM
 
 ## JVM整体结构
 
-![JVM整体结构]()
+![JVM整体结构](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/JVM%E6%95%B4%E4%BD%93%E7%BB%93%E6%9E%84.png?raw=true)
 
 上图为HotSpot JVM结构图，HotSpot是目前市面上高性能虚拟机的代表之一。它采用解释器与即时编译并存的架构。
 HotSpot JVM结构从上向下分为：
