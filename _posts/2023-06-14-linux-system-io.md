@@ -186,3 +186,91 @@ exit_group(0)                           = ?
 +++ exited with 0 +++
 ```
 上面的代码实际执行过程是调用三次系统调用输出b，而三次标准I/O输出实际合并为一个系统调用I/O一次输出了aaa。
+
+### dup、dup2和原子操作
+
+```
+int dup(int oldfd);
+int dup2(int oldfd, int newfd);
+```
+
+dup是一个系统调用，作用是复制oldfd文件描述符，使用一个最低的未使用的文件描述符作为新的文件描述符。新旧的文件描述符指向同一个打开的文件，共享文件偏移量和状态标记。
+
+dup2也是一个系统调用，作用和dup函数一样，不同的是dup2会使用一个指定文件描述符作为新的文件描述符。如果newfd之前指向一个打开的文件，在重新使用前会被关闭。关闭文件描述符和重用文件描述符整个执行过程是原子的，这样防止在一些竞态条件下，在关闭文件描述符和重用文件描述符之间，文件描述符被其他线程使用。
+
+下面通过一个例子展示dup和dup2函数的使用，这个例子实现将hello输出重定向到一个临时文件中：
+```
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#define FILENAME "/tmp/out"
+int main()
+{
+  int fd;
+
+  fd = open(FILENAME, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+  if (fd < 0)
+  {
+    perror("open()");
+    exit(1);
+  }
+
+  close(1);
+  dup(fd);
+  // dup2(fd, 1);
+
+  if (fd != 1)
+    close(fd);
+
+  puts("hello!");
+  exit(0);
+}
+```
+解释说明一下这段代码，这段代码先打开了一个文件，然后关闭文件描述符1位置的标准输出，然后通过dup函数复制打开的文件描述符，因为文件描述符1刚刚关闭了，使用最小的文件描述符，就会使用文件描述符1，使其指向新打开的文件。后面输出hello的时候，就会将内容输出文件描述符指向的文件。这里的
+```
+close(1);
+dup(fd);
+```
+这个两步操作可以合并使用dup2函数代替，并且保证操作的原子性。
+
+### sync、fsync和fdatasync函数
+
+```
+void sync(void);
+
+int fsync(int fd);
+
+int fdatasync(int fd);
+```
+sync函数的作用是全局催促，在关机或者设备卸载之前，刷新buffer的数据到底层文件系统，这个buffer是内核层面的。
+
+fsync的作为是刷新文件描述符fd的数据，将内核中所有修改的文件描述符fd的数据刷新到磁盘设备中。
+
+fdatasync的作用也是刷文件数据，但是它只刷新有效数据，不刷新亚数据。有效数据指的是文件的内容，而亚数据指的文件修改时间、大小等。
+
+### fcntl和ioctl函数
+
+```
+int fcntl(int fd, int cmd, ... /* arg */ );
+```
+fcntl函数的作用是文件描述符fd执行指定操作，操作类型由cmd参数决定，arg参数根据cmd需要传入。cmd取值有很多种，可以通过man手册查看。比如cmd取值F_DUPFD，可以实现与dup函数一样的功能，复制一个文件描述符到最低的可用的文件描述符。
+
+```
+int ioctl(int fd, unsigned long request, ...);
+```
+ioctl是一个系统调用，用来操作底层设备文件的参数。第一个fd是一个打开的文件的描述符，第二个参数request是一个设备相关的请求码，第三个参数是一个char *argp类型的指针。
+
+另外有个特殊的目录：/dev/fd/目录，它是一个虚目录，显示的是当前进程的文件描述符的信息。例如：
+```
+qcb@qincb:/mnt/c/Users/37341$ ls -l /dev/fd/
+total 0
+lrwx------ 1 qcb qcb 64 Jun 22 22:05 0 -> /dev/pts/0
+lrwx------ 1 qcb qcb 64 Jun 22 22:05 1 -> /dev/pts/0
+lrwx------ 1 qcb qcb 64 Jun 22 22:05 2 -> /dev/pts/0
+lr-x------ 1 qcb qcb 64 Jun 22 22:05 3 -> /proc/105/fd
+```
+上面的例子显示的就是ls命令进程的文件描述符信息。
