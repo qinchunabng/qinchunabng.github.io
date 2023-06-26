@@ -46,3 +46,4 @@ Java虚拟机的启动是通过引导类加载器（bootstrap class loader）创
 - 由于操作系统出现错误而导致Java虚拟机进制终止
 - 某线程调用Runtime类或System类的exit方法，或Runtime类的halt方法，并且Java安全管理器也允许这次exit或halt操作。
 - 除此之外，JNI(Java Native Interface)规范描述了用JNI Invocation API来加载或卸载Java虚拟机时，Java虚拟机的退出情况。
+

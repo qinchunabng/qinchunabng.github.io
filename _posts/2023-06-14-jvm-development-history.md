@@ -47,4 +47,21 @@ HotSpot历史
 
 Oracle表达了整合两大优秀虚拟机的工作，大致在JDK8中完成。整合的方式是在HotSpot的基础上完成，移植JRockit的优秀特性。
 
+### IBM的J9
 
+- 全称：IBM Technology for Java Virtual Machine，简称IT4J，内部代号：J9
+- 市场定位与HotSpot接近，服务器端、桌面应用、嵌入式等多用途VM
+- 广泛应用于IBM的各种Java产品。
+- 目前，有影响力的三大商用虚拟机之一，也是号称世界上最快的的Java虚拟机。
+- 2017年左右，IBM发布了开源J9 VM，命名为OpenJ9，交给Eclipse基金会管理，也成为Ecplise OpenJ9。
+
+### Dalvik VM
+
+- Dalvik VM是谷歌开发的，应用于Anroid系统，并在Android2.2提供了JIT，发展迅猛。
+- Dalvik VM只能称作虚拟机，而不能称为“Java虚拟机”，它没有遵循Java虚拟机规范。
+- 不能执行Java的Class文件。
+- 基于寄存器架构，不是jvm的栈架构。
+- 执行的是编译后的dex（Dalvik Executable）文件，执行效率比较高。
+  - 它执行的dex（Dalvik Executable）文件可以通过Class文件转而来，使用Java语法编写应用程序，可以直接使用大部分的Java API等。
+
+- Android 5.0使用支持提前编译（Ahead of Time Compilation，AOT）的AVT VM替换Dalvik VM。
