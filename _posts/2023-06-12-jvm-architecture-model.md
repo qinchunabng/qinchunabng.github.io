@@ -8,7 +8,7 @@ keywords: Java, JVM
 
 ## JVM的架构模型
 
-![JVM整体结构]()
+![JVM整体结构](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/java/JVM%E6%9E%B6%E6%9E%84-%E8%8B%B1.jpg?raw=true)
 
 Java编译器输入的指令流基本上是一种基于栈的指令集架构，另一种指令架构则是基于基于寄存器的指令集架构。
 
