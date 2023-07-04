@@ -191,4 +191,77 @@ null
 sun.misc.Launcher$AppClassLoader@18b4aac2
 null
 ```
-因为BootstrapClassLoader不是Java代码实现的，所以获取的是null。用户自定义的类默认用系统类加载器加载。String类获取的加载是null，间接的说明String是用引导类加载器加载的，并且Java中所有的核心类都是由BootstrapClassLoader加载的。
+因为BootstrapClassLoader不是Java代码实现的，所以获取的是null。用户自定义的类默认用系统类加载器加载。String类获取的加载是null，间接的说明String是用启动类加载器加载的，并且Java中所有的核心类都是由BootstrapClassLoader加载的。
+
+#### 虚拟机自带的类加载器
+
+- **启动类加载器（Bootstap ClassLoader）**
+  
+  - 这个类加载使用C/C++语言实现，嵌套在JVM内部。
+  - 它用来加载Java的核心库（JAVA_HOME/jre/lib/rt.jar、resource.jar或sun.boot.class.path路径下的内容），用于提供JVM自身需要的类。
+  - 并不继承自java.lang.ClassLoader，没有父加载器。
+  - 加载扩展类和应用程序类加载器，并指定为他们的父类加载器。
+  - 出于安全考虑，Bootstrap启动类加载器只加载包名为java、javax、sun等开头的类。
+
+- **扩展类加载器（Extension ClassLoader）**
+  - Java语言编写，由sun.misc.Launcher$ExtClassLoader实现。
+  - 派生于ClassLoader类。
+  - 父类加载器为启动类加载器。
+  - 从java.ext.dirs系统属性所指定的目录中加载类库，或从JDK的安装目录的jre/lib/ext子目录（扩展目录）下加载类库。如果用户创建的JAR放在此目录，也会自动由扩展类加载器加载。
+
+- **应用程序类加载器（系统类加载器，AppClassLoader）**
+  - java语法编写，由sun.misc.Launcher$AppClassLoader实现。
+  - 派生于ClassLoader类。
+  - 父类加载器为扩展类加载器。
+  - 它负责加载环境变量classpath或系统属性java.class.path指定路径下的类库。
+  - 该类加载是程序中默认的类加载器，一般来说，Java应用的类都是由它来加载。
+  - 通过ClassLoader#getSystemLoader()方法可以获取该类加载器。
+
+- **用户自定义类加载器**
+  - 在Java的日常应用程序中，类的加载几乎是由上述3种类加载器相互配合执行的，在必要时，我们还可以自定义类加载器，来定制类的加载方式。
+  - 为什么要自定义类加载器？
+    - 隔离加载类
+    - 修改类加载的方式
+    - 扩展加载源
+    - 防止源码泄漏
+  - 用户自定义类加载器的实现步骤：
+    
+    1. 开发人员可以通过继承抽象类java.lang.ClassLoader类的方式，实现自己的类加载器，以满足一些特殊的要求。
+    2. 在JDK1.2之前，在自定义类加载器时，总会去继承ClassLoader类并重写loadClass()方法，从而实现自定义的类加载器，但是在JDK1.2之后，已不在建议用户去覆盖loadClass()方法，而是建议把自定义的类加载逻辑写在fingClass()方法种。
+    3. 在白那些类加载器时，如果没有太过于复杂的需求，可以直接继承URLClassLoader类，这样就可以避免自己去编写findClass()方法及其获取字节码流的方式，使自定义类加载器编写更加简洁。
+
+  自定义ClassLoader实例：
+  ```
+  public class CustomClassLoader extends ClassLoader {
+
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        try {
+            byte[] result = getClassFromCustomPath(name);
+            if(result == null){
+                throw new FileNotFoundException();
+            }else{
+                return defineClass(name, result, 0, result.length);
+            }
+        }catch (FileNotFoundException e){
+            e.printStackTrace();
+        }
+
+        throw new ClassNotFoundException(name);
+    }
+
+    private byte[] getClassFromCustomPath(String name){
+        //从自定义路径加载class文件，细节略
+        //如果字节码文件有加密，则需要在这里执行解密操作
+        return null;
+    }
+
+    public static void main(String[] args) throws Exception {
+        CustomClassLoader customClassLoader = new CustomClassLoader();
+        Class cls = Class.forName("One", true, customClassLoader);
+        Object obj = cls.newInstance();
+        System.out.println(obj.getClass().getClassLoader());
+    }
+  }
+
+  ```
