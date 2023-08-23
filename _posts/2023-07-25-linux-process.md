@@ -116,4 +116,145 @@ options为以下取值，可以为以下一个或多个常量值，通过或操�
 -  WTERMSIG(wstatus)：如果WIFSIGNALED(wstatus)返回为true，用这个宏获取导致子进程终止的宏的编号。
 -  WCOREDUMP(wstatus)：如果子进程产生了core dump文件返回true。这个宏应该在WIFSIGNALED(wstatus)返回true的时候调用。
 
+### exec函数族
 
+```
+ extern char **environ;
+
+int execl(const char *pathname, const char *arg, ...
+                       /* (char  *) NULL */);
+int execlp(const char *file, const char *arg, ...
+                       /* (char  *) NULL */);
+int execle(const char *pathname, const char *arg, ...
+                       /*, (char *) NULL, char *const envp[] */);
+int execv(const char *pathname, char *const argv[]);
+int execvp(const char *file, char *const argv[]);
+int execvpe(const char *file, char *const argv[],
+                       char *const envp[]);
+```
+exec函数族的作用是将当前进程的镜像替换为一个新的进程镜像。这些函数的初始化的参数是要执行文件的名称。这写函数可以按照exec后的字母进行分类：
+- l - execl(),execlp(),execle()
+  
+  arg参数以及后面的`...`可以看作arg0,arg1...argn，它们是执行程序所需要的参数，最后以后必须以(char *)NULL作为终结符结尾，因为这是一个可变参数。第一个参数为要执行的文件的名称。
+
+- v - execv(),execvp(),execvpe()
+  
+  `char *const argv[]`是一个以NULL结尾的字符串数组，这些参数新的进程可以为访问。第一个参数是要执行的文件的文件名。
+
+- e - execle(),execvpe()
+
+  envp参数定义执行进程的环境变量。envp参数是一个以NULL结尾的的字符串数组。其他所有的不以'e'结尾的exec()函数，环境变量都是通过调用进程的external变量environ获取的。 
+
+- p - execlp(),execvp(),execvpe()
+
+  这些函数可以实现shell通过可执行文件名搜索可执行文件的操作，如果文件名中不包过'/'。文件的查找路径通过PATH环境变量定义以冒号分隔，如果环境变量没有定义，默认路径包含了confstr(_CS_PATH)函数返回的目录（一般返回值为"/bin:/usr/bin")），或者当前工作目录。如果定义的文件名中包含了/，则不会从PATH中查找。
+
+如果exec()函数返回了，说明发生了异常。如果返回值为-1，errno会设置为对应的错误编码。
+
+示例：
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(){
+    puts("Begin!");
+    fflush(NULL);
+
+    execl("/bin/date", "date", "+%s", NULL);
+    perror("execl()");
+    exit(1);
+
+    puts("End!");
+    exit(1);
+}
+```
+输出结果：
+```
+Begin!
+1691384204
+```
+需要注意的是在执行execl()需要执行刷新缓冲区的命令。如果不加，由于puts()是行缓冲模式，但是在文件输出流中，'\n'刷新行缓冲会失效。例如，如果不加fflush(NULL)，执行`./execl > /tmp/out`，/tmp/out中只有`1691384204`的输出结果，不会有'Begin!'，因为在execl执行之后会替换当前进程的镜像，进程pid不变。一般情况下，exec()是与fork()配合使用的：
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+int main(){
+    puts("Begin!");
+    pid_t pid;
+
+    pid = fork();
+    if(pid < 0){
+        perror("fork()");
+        exit(1);
+    }
+    if(pid == 0){
+        execl("/bin/date", "date", "+%s", NULL);
+        perror("execl()");
+        exit(1);
+    }
+
+    wait(NULL);
+
+    puts("End!");
+    exit(1);
+}
+```
+输出结果：
+```
+Begin!
+1691384960
+End!
+```
+
+shell中执行命令的原理，就是fork一个子进程，然后用exec()函数替换子进程，shell中调用wait()等待回收子进程。
+
+exec()函数argv0参数还有个作用是隐藏真实的进程名称，例如修改上面示例代码，调用sleep进程休眠：
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+int main(){
+    puts("Begin!");
+    pid_t pid;
+
+    pid = fork();
+    if(pid < 0){
+        perror("fork()");
+        exit(1);
+    }
+    if(pid == 0){
+        execl("/bin/sleep", "httpd", "100", NULL);
+        perror("execl()");
+        exit(1);
+    }
+
+    wait(NULL);
+
+    puts("End!");
+    exit(1);
+}
+```
+编译执行后，重新打开一个shell窗口执行`ps axf`:
+```
+ PID TTY      STAT   TIME COMMAND
+    1 ?        Sl     0:00 /init
+    7 ?        Ss     0:00 /init
+    8 ?        S      0:00  \_ /init
+    9 pts/0    Ss     0:00      \_ -bash
+   81 pts/0    S+     0:00          \_ ./exec
+   82 pts/0    S+     0:00              \_ httpd 100
+   49 ?        Ss     0:00 /init
+   50 ?        S      0:00  \_ /init
+   51 pts/1    Ss     0:00      \_ -bash
+   83 pts/1    R+     0:00          \_ ps axf
+```
+sleep进程被伪装成了一个httpd进程，一些木马程序会采用这样的方式进行伪装。
+
+shell的命令分为内部命令和外部命令。区分是内部还是外部通过命令是否是存储在磁盘区分，存在磁盘上的为shell的外部命令，其他的为内部命令。
