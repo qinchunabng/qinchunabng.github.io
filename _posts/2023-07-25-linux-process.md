@@ -258,3 +258,205 @@ int main(){
 sleep进程被伪装成了一个httpd进程，一些木马程序会采用这样的方式进行伪装。
 
 shell的命令分为内部命令和外部命令。区分是内部还是外部通过命令是否是存储在磁盘区分，存在磁盘上的为shell的外部命令，其他的为内部命令。
+
+通过fork()和wait实现shell的例子：
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <glob.h>
+#include <unistd.h>
+#include <errno.h>
+
+#define DELIMS " \t\n"
+
+struct cmd_st
+{
+  glob_t globres;
+};
+
+static void prompt()
+{
+  printf("mysh-0.1$ ");
+  fflush(NULL);
+}
+
+static void parse(char *line, struct cmd_st *cmd)
+{
+  int i = 0;
+  int res;
+  char *tok;
+  while (1)
+  {
+    tok = strsep(&line, DELIMS);
+    if (tok == NULL)
+      break;
+    if (tok[0] == '\0')
+      continue;
+    // it is not need to append in the first time.
+    printf("tok:[%s]\n", tok);
+    res = glob(tok, GLOB_NOCHECK | GLOB_APPEND * i, NULL, &cmd->globres);
+    if (res != 0)
+    {
+      fprintf(stderr, "glob():%s\n", strerror(res));
+      // return -2;
+    }
+    // printf("glob.gl_pathc:%ld\n", cmd->globres.gl_pathc);
+    i = 1;
+  }
+  // return 0;
+}
+
+int main()
+{
+  char *linebuf = NULL;
+  size_t linebuf_size = 0;
+  struct cmd_st cmd;
+  pid_t pid;
+  int res;
+  while (1)
+  {
+    prompt();
+    if (getline(&linebuf, &linebuf_size, stdin) < 0)
+    {
+      perror("getline()");
+      break;
+    }
+    // printf("linebuf:[%s]\n", linebuf);
+    parse(linebuf, &cmd);
+    // printf("%s:%d\n", __FUNCTION__, __LINE__);
+    if (0)
+    {
+      //是内部命令
+    }
+    else
+    {
+      //是外部命令
+      pid = fork();
+      if (pid < 0)
+      {
+        perror("fork()");
+        exit(1);
+      }
+      if (pid == 0)
+      {
+        // printf("gl_pathv[0]:%s\n", cmd.globres.gl_pathv[0]);
+        execvp(cmd.globres.gl_pathv[0], cmd.globres.gl_pathv);
+        perror("execvp()");
+        exit(1);
+      }
+      else
+      {
+        wait(NULL);
+      }
+    }
+  }
+  exit(0);
+}
+```
+
+### 用户组和权限
+
+u+s权限就是一个可执行文件在执行的时候，权限切换为当前这个可执行文件的user的身份。执行shell命令的时候，流程是fork一个子进程然后再用exce执行shell命令，在shell进程中等待子进程执行结束回收。所以在执行u+s权限的执行文件的时候，切换用户权限过程是在exec函数中完成的，执行子进程的时候使用可执行文件user身份执行的。
+
+Linux在启动之后会先以root的身份启动一个init进程，然后通过fork+exec启动一个getty进程，然后显示输入用户密码登录的提示，用户输入用户名后，通过exec将当前执行进程替换为login进程。在login进程执行时，会显示输入密码，输入密码之后，login进程会以root用户的身份读取shadow文件，判断用户名密码是否正确。如果验证正确，通过fork+exec启动一个shell进程，切换为当前用户的res，使用的是当前登录用户的身份。如果用户名密码验证失败，重新执行getty进程和login进程，输入用户名和密码。
+
+```
+uid_t getuid(void);
+uid_t geteuid(void);
+```
+
+getuid()函数的作用是获取实际的用户ID，geteuid()函数的作用是获取有效的用户ID。
+
+```
+#include <sys/types.h>
+#include <unistd.h>
+
+int setuid(uid_t uid);
+```
+
+setuid()函数的作用是设置当前进程的有效用户ID。
+
+结合上面的函数，实现一个类型登录的权限切换的操作：
+
+```
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(int argc, char **argv)
+{
+  pid_t pid;
+  int ret;
+  if (argc < 3)
+  {
+    fprintf(stderr, "Usage....\n");
+    exit(1);
+  }
+
+  pid = fork();
+  if (pid < 0)
+  {
+    perror("fork()");
+    exit(1);
+  }
+
+  if (pid == 0)
+  {
+    // child process
+    ret = setuid(atoi(argv[1]));
+    if (ret < 0)
+    {
+      perror("setuid()");
+      exit(1);
+    }
+    execvp(argv[2], argv + 2);
+    perror("execvp()");
+    exit(1);
+  }
+ 
+  wait(NULL);
+  exit(0);
+}
+```
+
+编译后，切换为root，`chown root:root ./mysu`修改可执行文件的mysu的用户为root，并且使用`chmod u+s ./mysu`给可以执行文件mysu添加u+s的权限。然后切换为普通用户，使用`./mysu 0 cat /etc/shadow`即可查看shadow文件的内容。
+
+### 守护进程
+
+守护进程就是一直在后台运行的进程，守护进程一般需要脱离控制终端，并且是一个会话的leader，还是一个进程组的leader，
+
+```
+#include <sys/types.h>
+#include <unistd.h>
+
+pid_t setsid(void);
+```
+
+setsid()函数的作用是如果调用进程不是一个进程组的leader就创建一个新的会话。当前进程会称为新会话的leader和新进程组的leader，并且脱离从控制终端。
+
+```
+#include <sys/types.h>
+#include <unistd.h>
+
+int setpgid(pid_t pid, pid_t pgid);
+pid_t getpgid(pid_t pid);
+```
+
+setpgid()函数的作用是给进程id为pid的进程设置进程组ID。getpgid()函数的作用是获取进程的进程组ID。
+
+### 系统日志
+
+系统位于/var/log目录下，安装内容进行分类，messages为主日志文件。所有需要写系统日志进程将系统日志交给syslogd进程，再由syslogd进程将日志写入系统日志。
+
+```
+#include <syslog.h>
+
+void openlog(const char *ident, int option, int facility);
+void syslog(int priority, const char *format, ...);
+void closelog(void);
+```
+
+openlog()函数的作用是与syslogd进程相关联，syslog()是提交日志内容到syslogd,closelog()是关闭与syslogd的关联。
