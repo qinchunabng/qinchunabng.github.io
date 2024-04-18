@@ -58,4 +58,12 @@ func main() {
 
 GOROUTINE的调度是GO语言运行时实现的调度系统go scheduler进行调度的，采用的是GPM调度模型。
 
-![GPM]()
+![GPM](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/go/gpm.png?raw=true)
+
+- G: 代表goroutine，每执行一次go f()就创建一个G，包含需要执行的和上下文信息。
+- 全局队列: 存放等待执行的G。
+- P: 代表goroutine执行苏所需的资源，最多有GOMAXPROCS个。
+- P的本地队列：同全局队列类似，存放的也是等待执行的G，存放的数量有限，不超过256个。新建G时，优先存放到本地队列中，如果本地队列满了再存放到全局队列中。
+- M: M代表一个内核级线程，M要执行任务，必须获取P，从P的本地队列中获取G，当本地队列为空时，M会尝试从全局队列或者从其他P的本地队列中尝试获取G。M执行完一个G之后，会从队列中获取下一个G，不断重复。
+  
+通过将GOROUTINE调度器与操作系统调度器结合，将多个goroutine分配到内核线程上执行。 goroutine是由Go运行时（runtime）自己的调度器调度的，完全是在用户态下完成的， 不涉及内核态与用户态之间的频繁切换，包括内存的分配与释放，都是在用户态维护着一块大的内存池， 不直接调用系统的malloc函数（除非内存池需要改变），成本比调度内核线程低很多。 另一方面充分利用了多核的硬件资源，近似的把若干goroutine均分在物理线程上， 再加上本身 goroutine 的超轻量级，以上种种特性保证了 goroutine 调度方面的性能。
