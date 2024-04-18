@@ -57,3 +57,5 @@ func main() {
 ## GOROUTINE的工作原理
 
 GOROUTINE的调度是GO语言运行时实现的调度系统go scheduler进行调度的，采用的是GPM调度模型。
+
+![GPM]()
