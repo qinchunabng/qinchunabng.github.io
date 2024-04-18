@@ -40,7 +40,7 @@ func main() {
 
 内核线程依赖内核，它们的创建、撤销和切换都由内核实现。在内核中有一个线程控制块，系统根据线程控制块感知到线程的存在堆线程进行控制。当某个线程需要创建一个新线程或者撤销一个线程，会执行一个系统调用，这个系统调用同通过对线程表的更新完成线程的创建或撤销。
 
-![用户级线程与内核级线程对比示意图](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/go/%E7%BA%BF%E7%A8%8B.png)
+![用户级线程与内核级线程对比示意图](https://github.com/qinchunabng/qinchunabng.github.io/blob/master/images/posts/go/%E7%BA%BF%E7%A8%8B.png?raw=true)
 
 用户级线程与内核级线程相比，主要有以下几个区别：
 
